@@ -23,7 +23,7 @@ import { processError } from '../../utils/errorHandling'
 import { validatePassword } from '../../utils/validate'
 import OverlayLoader from '../OverlayLoader/OverlayLoader'
 
-const ChangePassword = () => {
+function ChangePassword() {
   const { enqueueSnackbar } = useSnackbar()
   const { logout } = useContext(AppContext)
 
@@ -56,7 +56,7 @@ const ChangePassword = () => {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    var error = false
+    let error = false
     if (!validatePassword(newPassword)) {
       setNewPasswordError(true)
       error = true
@@ -134,7 +134,7 @@ const ChangePassword = () => {
             <InputLabel htmlFor="new-password">New Password</InputLabel>
             <OutlinedInput
               label="New Password"
-              type={'password'}
+              type="password"
               id="new-password"
               autoComplete="current-password"
               value={newPassword}
@@ -153,7 +153,7 @@ const ChangePassword = () => {
             <InputLabel htmlFor="confirm-password">Confirm Password</InputLabel>
             <OutlinedInput
               label="Confirm Password"
-              type={'password'}
+              type="password"
               id="confirm-password"
               autoComplete="current-password"
               value={confirmPassword}

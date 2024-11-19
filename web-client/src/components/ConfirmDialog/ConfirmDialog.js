@@ -1,11 +1,11 @@
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material'
 import { useEffect, useRef } from 'react'
 
-const ConfirmDialog = ({ open, onClose, onConfirm, confirmText, confirmContent, confirmDisabled }) => {
+function ConfirmDialog({ open, onClose, onConfirm, confirmText, confirmContent, confirmDisabled }) {
   const confirmButtonRef = useRef(null)
 
   useEffect(() => {
-    if (open) confirmButtonRef.current && confirmButtonRef.current.focus()
+    if (open && confirmButtonRef.current) confirmButtonRef.current.focus()
   }, [open])
 
   return (

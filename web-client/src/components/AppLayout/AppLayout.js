@@ -65,7 +65,7 @@ function AppLayout() {
           </IconButton>
           <Grid container spacing={2} direction="row" alignItems="center">
             <Routes>
-              {ROUTES.map(({ route, name, schoolDependant }) => (
+              {ROUTES.map(({ route, name }) => (
                 <Route
                   key={route}
                   path={route}
@@ -76,7 +76,9 @@ function AppLayout() {
                           {name}
                         </Typography>
                       </Grid>
-                      {schoolDependant && <AppBarSelectors />}
+                      <Grid item>
+                        <AppBarSelectors />
+                      </Grid>
                     </>
                   }
                 />
@@ -120,7 +122,7 @@ function AppLayout() {
                 open={userMenuOpen}
                 onClose={() => setUserMenuOpen(false)}
               >
-                <MenuItem component={Link} to="/change-password">
+                <MenuItem component={Link} to="/change-password" onClick={() => setUserMenuOpen(false)}>
                   <Typography textAlign="center">Change Password</Typography>
                 </MenuItem>
                 <MenuItem

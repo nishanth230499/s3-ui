@@ -1,8 +1,6 @@
 import FolderIcon from '@mui/icons-material/Folder'
 
-function BucketContents() {
-  return <div />
-}
+import BucketContents from '../../containers/BucketContents/BucketContents'
 
 export const ROUTES = [
   {

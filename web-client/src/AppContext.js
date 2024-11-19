@@ -18,14 +18,14 @@ export function AppContextWrapper({ children }) {
 
   useEffect(() => {
     const lastSelectedBucket = localStorage.getItem('selectedBucket')
-    const firstBucket = loggedinUser?.buckets?.[0]
-    if (lastSelectedBucket && loggedinUser?.buckets?.find((b) => b === lastSelectedBucket)) {
+    const firstBucket = loggedinUser?.aws_buckets?.[0]
+    if (lastSelectedBucket && loggedinUser?.aws_buckets?.find((b) => b === lastSelectedBucket)) {
       setSelectedBucket(lastSelectedBucket)
     } else if (firstBucket) {
       localStorage.setItem('selectedBucket', firstBucket)
       setSelectedBucket(firstBucket)
     }
-  }, [loggedinUser?.buckets])
+  }, [loggedinUser?.aws_buckets])
 
   const handleBucketChange = (id) => {
     setSelectedBucket(id)
