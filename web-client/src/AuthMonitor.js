@@ -145,7 +145,7 @@ function AuthMonitor({ children }) {
         <Typography component="h1" variant="h5">
           Samruddhi Publishers
         </Typography>
-        <Typography component="h1">S3 UI</Typography>
+        <Typography component="h1">Samruddhi Backup</Typography>
         <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
           <TextField
             margin="normal"

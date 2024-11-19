@@ -29,6 +29,7 @@ import { SOMETHING_WENT_WRONG } from '../../constants/stringConstants'
 import fetcher from '../../utils/api/fetcher'
 import mutator from '../../utils/api/mutator'
 import { processError } from '../../utils/errorHandling'
+import { formatBytes } from '../../utils/format'
 
 function BucketContents() {
   const { enqueueSnackbar } = useSnackbar()
@@ -89,6 +90,8 @@ function BucketContents() {
         ),
     },
     { field: 'type', headerName: 'Type', width: 200 },
+    { field: 'size', headerName: 'Size', width: 200 },
+    { field: 'lastModified', headerName: 'Last Modified', width: 200 },
   ]
   const dataRows = useMemo(
     () => [
@@ -96,11 +99,15 @@ function BucketContents() {
         id: folder.Prefix,
         name: `${folder.Prefix.split('/').slice(-2)[0]}/`,
         type: 'Folder',
+        size: '-',
+        lastModified: '-',
       })) || []),
       ...(filesFolders?.files?.map((file) => ({
         id: file.Key,
         name: file.Key.split('/').slice(-1)[0],
         type: 'File',
+        size: formatBytes(file.Size),
+        lastModified: new Date(file.LastModified).toLocaleString(),
       })) || []),
     ],
     [filesFolders?.files, filesFolders?.folders],
@@ -185,7 +192,7 @@ function BucketContents() {
           <ol>
             {presignedUrlsData?.presigned_urls?.map(({ key, url }) => (
               <li key={key}>
-                <Link color="primary" href={url}>
+                <Link color="primary" href={url} target="_blank" rel="noreferrer">
                   {key.split('/').slice(-1)[0]}
                 </Link>
               </li>
