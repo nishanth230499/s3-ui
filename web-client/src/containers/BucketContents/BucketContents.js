@@ -105,7 +105,7 @@ function BucketContents() {
       ...(filesFolders?.files?.map((file) => ({
         id: file.Key,
         name: file.Key.split('/').slice(-1)[0],
-        type: 'File',
+        type: file.Key.split('.').slice(-1)[0],
         size: formatBytes(file.Size),
         lastModified: new Date(file.LastModified).toLocaleString(),
       })) || []),
