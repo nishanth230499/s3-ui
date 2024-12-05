@@ -11,7 +11,7 @@ from jsonschema import validate
 from bcrypt import checkpw, gensalt, hashpw
 from dotenv import load_dotenv
 
-from constants import PASSWORD_SCHEMA
+from constants import PASSWORD_SCHEMA, ZIP_FILENAME_SCHEMA
 
 cred = credentials.Certificate("./s3_ui_2024_cred.json")
 firebase_admin.initialize_app(cred, {
@@ -31,6 +31,11 @@ jwt = JWTManager(app)
 aws_secrets = json.loads(os.getenv("AWS_SECRETS"))
 aws_buckets = list(aws_secrets.keys())
 s3_clients = {k: boto3.client('s3', 
+                            region_name=v['S3_REGION'],
+                            aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
+                            aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY']) for k, v in aws_secrets.items()}
+
+lambda_clients = {k: boto3.client('lambda', 
                             region_name=v['S3_REGION'],
                             aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
                             aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY']) for k, v in aws_secrets.items()}
@@ -174,6 +179,52 @@ def get_presigned_urls(bucket):
             )
             response.append({"key": key, "url": url})
         return {"presigned_urls": response}
+    except Exception as e:
+        return make_response({"message": str(e)}, 403)
+
+@app.route('/api/zip-files/<bucket>/', methods=["POST"])
+@jwt_required()
+def zip_files(bucket):
+    rq = request.json
+    schema = {
+        "type": "object",
+        "properties": {
+            "folder": {
+                "type": "string",
+            },
+            "prefixes": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                },
+                "minItems": 1,
+            },
+            "zip_file_name": ZIP_FILENAME_SCHEMA
+        },
+        "required": ["folder", "prefixes", "zip_file_name"]
+    }
+    try:
+        validate(instance=rq, schema=schema)
+    except Exception as e:
+        return make_response({"message": str(e)}, 403)
+    
+    try:
+        lambda_invoke_payload = {
+            "bucket": bucket,
+            "folder": rq["folder"],
+            "prefixes": rq["prefixes"],
+            "zipFileName": rq["zip_file_name"],
+            "region": aws_secrets[bucket]["S3_REGION"]
+        }
+        lambda_response = lambda_clients[bucket].invoke(
+            FunctionName = 's3-zip',
+            InvocationType = 'Event',
+            Payload = json.dumps(lambda_invoke_payload)
+        )
+        if lambda_response['StatusCode'] == 202:
+            return {"message": "Zip request sent!"}
+        else:
+            return make_response({"Lambda Invoke Failed": str(e)}, lambda_response['StatusCode'])
     except Exception as e:
         return make_response({"message": str(e)}, 403)
 

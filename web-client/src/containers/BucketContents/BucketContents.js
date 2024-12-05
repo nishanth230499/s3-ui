@@ -1,4 +1,5 @@
 /* eslint-disable jsx-a11y/anchor-is-valid */
+import FolderZipIcon from '@mui/icons-material/FolderZip'
 import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import ShareIcon from '@mui/icons-material/Share'
@@ -30,6 +31,7 @@ import fetcher from '../../utils/api/fetcher'
 import mutator from '../../utils/api/mutator'
 import { processError } from '../../utils/errorHandling'
 import { formatBytes } from '../../utils/format'
+import { validateFileName } from '../../utils/validate'
 
 function BucketContents() {
   const { enqueueSnackbar } = useSnackbar()
@@ -38,10 +40,15 @@ function BucketContents() {
 
   const [currentFolder, setCurrentFolder] = useState('')
   const [selectedFiles, setSelectedFiles] = useState([])
+
   const [presignedUrlDialogueOpen, setPresignedUrlDialogueOpen] = useState(false)
   const [expirationTime, setExpirationTime] = useState(6)
   const [expirationTimeError, setExpirationTimeError] = useState(false)
   const [presignedUrlsOpen, setPresignedUrlsOpen] = useState(false)
+
+  const [zipFilesDialogueOpen, setZipFilesDialogueOpen] = useState(false)
+  const [zipFileName, setZipFileName] = useState('')
+  const [zipFileNameError, setZipFileNameError] = useState(false)
 
   const {
     data: filesFolders,
@@ -64,9 +71,13 @@ function BucketContents() {
     mutationFn: (body) => mutator(`/get-presigned-urls/${selectedBucket}/`, body),
   })
 
+  const { mutate: zipFiles, isLoading: zipFilesLoading } = useMutation({
+    mutationFn: (body) => mutator(`/zip-files/${selectedBucket}/`, body),
+  })
+
   const isLoading = useMemo(
-    () => filesFoldersLoading || getPresignedUrlLoading,
-    [filesFoldersLoading, getPresignedUrlLoading],
+    () => filesFoldersLoading || getPresignedUrlLoading || zipFilesLoading,
+    [filesFoldersLoading, getPresignedUrlLoading, zipFilesLoading],
   )
 
   const columns = [
@@ -113,6 +124,24 @@ function BucketContents() {
     [filesFolders?.files, filesFolders?.folders],
   )
 
+  const contentsDict = useMemo(() => {
+    const contentsDictObj = {}
+    dataRows?.forEach((file) => {
+      contentsDictObj[file.id] = file
+    })
+    return contentsDictObj
+  }, [dataRows])
+
+  const shareWithPresignedURLButtonDisabled = useMemo(
+    () => selectedFiles.length === 0 || Boolean(selectedFiles?.find((file) => contentsDict[file]?.type === 'Folder')),
+    [contentsDict, selectedFiles],
+  )
+
+  const zipFilesButtonDisabled = useMemo(
+    () => selectedFiles.length === 0 || Boolean(selectedFiles?.find((file) => contentsDict[file]?.type === 'zip')),
+    [contentsDict, selectedFiles],
+  )
+
   const handleShareWithPresignedUrlClick = () => {
     setExpirationTime(6)
     setExpirationTimeError(false)
@@ -133,6 +162,33 @@ function BucketContents() {
           },
         },
       )
+    } else {
+      setExpirationTimeError(true)
+    }
+  }
+
+  const handleZipFilesClick = () => {
+    setZipFileName('')
+    setZipFileNameError(false)
+    setZipFilesDialogueOpen(true)
+  }
+
+  const handleZipFilesConfirm = () => {
+    if (zipFileName && validateFileName(zipFileName)) {
+      setZipFilesDialogueOpen(false)
+      zipFiles(
+        { folder: currentFolder, prefixes: selectedFiles, zip_file_name: `${zipFileName}.zip` },
+        {
+          onSuccess: (data) => {
+            enqueueSnackbar(data.message, { variant: 'success' })
+          },
+          onError: (error) => {
+            enqueueSnackbar(processError(error), { variant: 'error' })
+          },
+        },
+      )
+    } else {
+      setZipFileNameError(true)
     }
   }
 
@@ -203,6 +259,44 @@ function BucketContents() {
           <Button onClick={() => setPresignedUrlsOpen(false)}>OK</Button>
         </DialogActions>
       </Dialog>
+      <ConfirmDialog
+        open={zipFilesDialogueOpen}
+        onClose={() => setZipFilesDialogueOpen(false)}
+        confirmText={`Zip ${selectedFiles.length} file(s) / folder(s)`}
+        confirmContent={
+          <>
+            <FormControl fullWidth margin="normal" required variant="outlined">
+              <InputLabel htmlFor="zip-file-name">Zip File Name</InputLabel>
+              <OutlinedInput
+                id="zip-file-name"
+                label="Zip File Name"
+                endAdornment=".zip"
+                value={zipFileName}
+                onChange={(e) => {
+                  setZipFileName(e.target.value)
+                  setZipFileNameError(e.target.value === '' || !validateFileName(e.target.value))
+                }}
+                error={zipFileNameError}
+              />
+            </FormControl>
+            <ul>
+              <li>
+                <Typography>If there exists another zip file with the same name, that will be overwritten.</Typography>
+              </li>
+              <li>
+                <Typography>The newly created zip files wil be automatically deleted after 180 days.</Typography>
+              </li>
+              <li>
+                <Typography>
+                  .zip files anywhere inside the selected folder will not be included in the new zip.
+                </Typography>
+              </li>
+            </ul>
+          </>
+        }
+        onConfirm={handleZipFilesConfirm}
+      />
+
       <Paper sx={{ width: '100%' }}>
         <Grid container justifyContent="space-between" mx={2} pt={2}>
           <Typography variant="h5">
@@ -221,9 +315,17 @@ function BucketContents() {
               variant="contained"
               startIcon={<ShareIcon />}
               onClick={handleShareWithPresignedUrlClick}
-              disabled={isLoading || selectedFiles.length === 0}
+              disabled={isLoading || shareWithPresignedURLButtonDisabled}
             >
               Share with Presigned URLs
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<FolderZipIcon />}
+              onClick={handleZipFilesClick}
+              disabled={isLoading || zipFilesButtonDisabled}
+            >
+              Zip Files
             </Button>
           </Grid>
         </Grid>
@@ -234,7 +336,6 @@ function BucketContents() {
             rows={dataRows}
             columns={columns}
             checkboxSelection
-            isRowSelectable={(gridRowParams) => gridRowParams?.row?.type !== 'Folder'}
             onRowSelectionModelChange={(rowSelectionModel) => setSelectedFiles(rowSelectionModel)}
             sx={{ border: 0 }}
             hideFooterPagination
