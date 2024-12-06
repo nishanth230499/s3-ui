@@ -217,7 +217,7 @@ def zip_files(bucket):
             "region": aws_secrets[bucket]["S3_REGION"]
         }
         lambda_response = lambda_clients[bucket].invoke(
-            FunctionName = 's3-zip',
+            FunctionName = aws_secrets[bucket]["ZIP_LAMBDA_FUNCTION_NAME"],
             InvocationType = 'Event',
             Payload = json.dumps(lambda_invoke_payload)
         )
