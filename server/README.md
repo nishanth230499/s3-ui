@@ -27,4 +27,5 @@ s3:GetObject (on every object in the bucket)
 s3:ListBucket (on the bucket)
 lambda:InvokeFunction (on the zip lambda function)
 dynamodb:GetItem (on the zip progress dynamoDB table)
+dynamodb:Query (on all the indices of the zip progress dynamoDB table)
 ```

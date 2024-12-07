@@ -210,29 +210,33 @@ export const handler = async (event) => {
       return response
     }
 
-    const s3_client_params = {
-      endpoint: 'https://s3.amazonaws.com',
-      region,
-      signatureVersion: 'v4',
-    }
-    const client = new S3Client(s3_client_params)
+    try {
+      const s3_client_params = {
+        endpoint: 'https://s3.amazonaws.com',
+        region,
+        signatureVersion: 'v4',
+      }
+      const client = new S3Client(s3_client_params)
 
-    await clearFiles()
-    const filesToZip = await listFiles(client, event)
-    // await downloadFiles(client, bucket, filesToZip)
-    // await zipFiles(zipFileName)
-    zipProgress.log('Downloading')
-    await downloadAndZipFiles(client, filesToZip, event)
-    zipProgress.log('Uploading')
-    await uploadZipFile(client, event)
-    await zipProgress.log('Finalized')
-    await clearFiles()
+      await clearFiles()
+      const filesToZip = await listFiles(client, event)
+      // await downloadFiles(client, bucket, filesToZip)
+      // await zipFiles(zipFileName)
+      zipProgress.log('Downloading')
+      await downloadAndZipFiles(client, filesToZip, event)
+      zipProgress.log('Uploading')
+      await uploadZipFile(client, event)
+      await zipProgress.log('Finalized')
+      await clearFiles()
 
-    const response = {
-      statusCode: 200,
-      body: JSON.stringify('Files zipped!'),
+      const response = {
+        statusCode: 200,
+        body: JSON.stringify('Files zipped!'),
+      }
+      return response
+    } catch (err) {
+      await zipProgress.logError('Failed', err)
     }
-    return response
   } catch (err) {
     console.error(err)
     const response = {

@@ -32,6 +32,7 @@ import mutator from '../../utils/api/mutator'
 import { processError } from '../../utils/errorHandling'
 import { formatBytes } from '../../utils/format'
 import { validateFileName } from '../../utils/validate'
+import ZipProgress from './ZipProgress'
 
 function BucketContents() {
   const { enqueueSnackbar } = useSnackbar()
@@ -181,6 +182,7 @@ function BucketContents() {
         {
           onSuccess: (data) => {
             enqueueSnackbar(data.message, { variant: 'success' })
+            refetchFilesFolders()
           },
           onError: (error) => {
             enqueueSnackbar(processError(error), { variant: 'error' })
@@ -332,15 +334,20 @@ function BucketContents() {
         {filesFoldersError ? (
           <Typography variant="h5">{processError(filesFoldersError) || SOMETHING_WENT_WRONG}</Typography>
         ) : (
-          <DataGrid
-            rows={dataRows}
-            columns={columns}
-            checkboxSelection
-            onRowSelectionModelChange={(rowSelectionModel) => setSelectedFiles(rowSelectionModel)}
-            sx={{ border: 0 }}
-            hideFooterPagination
-            loading={isLoading}
-          />
+          <>
+            <DataGrid
+              rows={dataRows}
+              columns={columns}
+              checkboxSelection
+              onRowSelectionModelChange={(rowSelectionModel) => setSelectedFiles(rowSelectionModel)}
+              sx={{ border: 0 }}
+              hideFooterPagination
+              loading={isLoading}
+            />
+            {Boolean(filesFolders?.zip_progress?.length) && (
+              <ZipProgress zipProgress={filesFolders?.zip_progress} loading={isLoading} />
+            )}
+          </>
         )}
       </Paper>
     </>

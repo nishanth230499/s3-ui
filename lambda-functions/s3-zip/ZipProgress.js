@@ -45,7 +45,7 @@ class ZipProgress {
               zipFileName: this.zipFileName,
             },
             UpdateExpression:
-              'set createdAt = :currentTime, updatedAt = :currentTime, progress = :progress',
+              'SET createdAt = :currentTime, updatedAt = :currentTime, progress = :progress REMOVE zipError',
             ExpressionAttributeValues: {
               ':currentTime': new Date().toISOString(),
               ':progress': 'Initialized',
@@ -87,6 +87,28 @@ class ZipProgress {
         ExpressionAttributeValues: {
           ':progress': progress,
           ':updatedAt': new Date().toISOString(),
+        },
+      })
+      await this.docClient.send(updateCommand)
+    } catch (err) {
+      console.error('Error while pushing logs to dynamoDB: ', err)
+    }
+  }
+
+  async logError(progress, error) {
+    try {
+      const updateCommand = new UpdateCommand({
+        TableName: this.tableName,
+        Key: {
+          folder: '/' + this.folder,
+          zipFileName: this.zipFileName,
+        },
+        UpdateExpression:
+          'set progress = :progress, zipError = :zipError, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':progress': progress,
+          ':updatedAt': new Date().toISOString(),
+          ':zipError': error,
         },
       })
       await this.docClient.send(updateCommand)

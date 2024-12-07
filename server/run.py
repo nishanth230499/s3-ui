@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone
 
 from constants import PASSWORD_SCHEMA, ZIP_FILENAME_SCHEMA
+from utils import process_zip_progress_items
 
 cred = credentials.Certificate("./s3_ui_2024_cred.json")
 firebase_admin.initialize_app(cred, {
@@ -140,7 +141,16 @@ def change_password():
 def list_files_folders(bucket, folder=""):
     try:
         response = aws_clients[bucket]["s3"].list_objects_v2(Bucket=bucket, Prefix=folder, Delimiter='/')
-        return {'files': list(filter(lambda a: a["Key"] != folder, response.get('Contents', []))), 'folders': response.get('CommonPrefixes', [])}
+        zip_progress = aws_clients[bucket]["dynamodb"].query(
+            TableName=aws_secrets[bucket]["ZIP_PROGRESS_DYNAMO_DB_TABLE_NAME"],
+            KeyConditionExpression="folder = :folder",
+            FilterExpression="createdAt >= :filterTime",
+            ExpressionAttributeValues={
+                ":folder": {"S": "/" + folder},
+                ":filterTime": {"S": (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()}
+            },
+        )
+        return {'files': list(filter(lambda a: a["Key"] != folder, response.get('Contents', []))), 'folders': response.get('CommonPrefixes', []), "zip_progress": process_zip_progress_items(zip_progress["Items"])}
     except Exception as e:
             return make_response({"message": str(e)}, 403)
 
