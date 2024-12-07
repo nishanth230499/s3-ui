@@ -8,6 +8,7 @@ import fs, { createWriteStream } from 'fs'
 import fsp from 'fs/promises'
 import { pipeline } from 'stream/promises'
 import archiver from 'archiver'
+import ZipProgress from './ZipProgress.js'
 
 const clearFiles = async () => {
   if (fs.existsSync('/tmp/zip-files')) {
@@ -192,7 +193,23 @@ const uploadZipFile = async (client, { zipFileName, bucket, folder }) => {
 
 export const handler = async (event) => {
   try {
-    const { region } = event
+    const { zipProgressTableName, folder, zipFileName, region } = event
+
+    const zipProgress = new ZipProgress(
+      zipProgressTableName,
+      folder,
+      zipFileName
+    )
+    if (!(await zipProgress.checkAndProgress(folder, zipFileName))) {
+      const response = {
+        statusCode: 409,
+        body: JSON.stringify({
+          message: 'Zip in progress with the same file name!',
+        }),
+      }
+      return response
+    }
+
     const s3_client_params = {
       endpoint: 'https://s3.amazonaws.com',
       region,
@@ -204,8 +221,11 @@ export const handler = async (event) => {
     const filesToZip = await listFiles(client, event)
     // await downloadFiles(client, bucket, filesToZip)
     // await zipFiles(zipFileName)
+    zipProgress.log('Downloading')
     await downloadAndZipFiles(client, filesToZip, event)
+    zipProgress.log('Uploading')
     await uploadZipFile(client, event)
+    await zipProgress.log('Finalized')
     await clearFiles()
 
     const response = {

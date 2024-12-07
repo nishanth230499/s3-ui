@@ -13,7 +13,8 @@ AWS_SECRETS={
         "S3_REGION": "<bucket-region>",
         "AWS_ACCESS_KEY_ID": "<user-access-key-id>",
         "AWS_SECRET_ACCESS_KEY": "<user-secret-access-key>",
-        "ZIP_LAMBDA_FUNCTION_NAME": "<zip-lambda-function-name>"
+        "ZIP_LAMBDA_FUNCTION_NAME": "<zip-lambda-function-name>",
+        "ZIP_PROGRESS_DYNAMO_DB_TABLE_NAME": "<zip-progress-dynamo-db-table-name>"
     }
     ...
 }
@@ -25,4 +26,5 @@ AWS_SECRETS={
 s3:GetObject (on every object in the bucket)
 s3:ListBucket (on the bucket)
 lambda:InvokeFunction (on the zip lambda function)
+dynamodb:GetItem (on the zip progress dynamoDB table)
 ```

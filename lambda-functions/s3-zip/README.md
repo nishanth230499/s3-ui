@@ -11,4 +11,8 @@ s3:ListBucket (on the bucket)
 s3:GetObject
 s3:PutObject
 s3:PutObjectTagging (on every object in the bucket)
+
+dynamodb:PutItem
+dynamodb:GetItem
+dynamodb:UpdateItem (on the zip progress dynamoDB table)
 ```

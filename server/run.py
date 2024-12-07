@@ -10,6 +10,7 @@ from flask_jwt_extended import JWTManager, create_access_token, create_refresh_t
 from jsonschema import validate
 from bcrypt import checkpw, gensalt, hashpw
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 
 from constants import PASSWORD_SCHEMA, ZIP_FILENAME_SCHEMA
 
@@ -30,15 +31,20 @@ jwt = JWTManager(app)
 
 aws_secrets = json.loads(os.getenv("AWS_SECRETS"))
 aws_buckets = list(aws_secrets.keys())
-s3_clients = {k: boto3.client('s3', 
-                            region_name=v['S3_REGION'],
-                            aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
-                            aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY']) for k, v in aws_secrets.items()}
-
-lambda_clients = {k: boto3.client('lambda', 
-                            region_name=v['S3_REGION'],
-                            aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
-                            aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY']) for k, v in aws_secrets.items()}
+aws_clients = {k: {
+    "s3": boto3.client('s3', 
+        region_name=v['S3_REGION'],
+        aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY']),
+    "lambda": boto3.client('lambda', 
+        region_name=v['S3_REGION'],
+        aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY']),
+    "dynamodb": boto3.client('dynamodb', 
+        region_name=v['S3_REGION'],
+        aws_access_key_id=v['AWS_ACCESS_KEY_ID'],
+        aws_secret_access_key=v['AWS_SECRET_ACCESS_KEY'])
+} for k, v in aws_secrets.items()}
 
 def fetch_user(identity):
     ref = db.reference('/users/' + identity)
@@ -133,7 +139,7 @@ def change_password():
 @jwt_required()
 def list_files_folders(bucket, folder=""):
     try:
-        response = s3_clients[bucket].list_objects_v2(Bucket=bucket, Prefix=folder, Delimiter='/')
+        response = aws_clients[bucket]["s3"].list_objects_v2(Bucket=bucket, Prefix=folder, Delimiter='/')
         return {'files': list(filter(lambda a: a["Key"] != folder, response.get('Contents', []))), 'folders': response.get('CommonPrefixes', [])}
     except Exception as e:
             return make_response({"message": str(e)}, 403)
@@ -169,7 +175,7 @@ def get_presigned_urls(bucket):
     try:
         response = []
         for key in rq["keys"]:
-            url = s3_clients[bucket].generate_presigned_url(
+            url = aws_clients[bucket]["s3"].generate_presigned_url(
                 ClientMethod='get_object',
                 Params={
                     'Bucket': bucket,
@@ -209,14 +215,24 @@ def zip_files(bucket):
         return make_response({"message": str(e)}, 403)
     
     try:
+        response = aws_clients[bucket]["dynamodb"].get_item(
+            TableName=aws_secrets[bucket]["ZIP_PROGRESS_DYNAMO_DB_TABLE_NAME"],
+            Key={
+                'folder': {'S': "/" + rq["folder"]},
+                'zipFileName': {'S': rq["zip_file_name"]}
+            }
+        )
+        if "Item" in response and response["Item"]["progress"]["S"] != "Finalized" and response["Item"]["progress"]["S"] != "Finalized" and (datetime.now(timezone.utc) - datetime.fromisoformat(response["Item"]["createdAt"]["S"].replace('Z', '+00:00'))).total_seconds() < 16*60:
+            return make_response({"message": "Zip in progress with the same file name!"}, 409)
         lambda_invoke_payload = {
             "bucket": bucket,
             "folder": rq["folder"],
             "prefixes": rq["prefixes"],
             "zipFileName": rq["zip_file_name"],
-            "region": aws_secrets[bucket]["S3_REGION"]
+            "region": aws_secrets[bucket]["S3_REGION"],
+            "zipProgressTableName": aws_secrets[bucket]["ZIP_PROGRESS_DYNAMO_DB_TABLE_NAME"]
         }
-        lambda_response = lambda_clients[bucket].invoke(
+        lambda_response = aws_clients[bucket]["lambda"].invoke(
             FunctionName = aws_secrets[bucket]["ZIP_LAMBDA_FUNCTION_NAME"],
             InvocationType = 'Event',
             Payload = json.dumps(lambda_invoke_payload)
@@ -224,7 +240,7 @@ def zip_files(bucket):
         if lambda_response['StatusCode'] == 202:
             return {"message": "Zip request sent!"}
         else:
-            return make_response({"Lambda Invoke Failed": str(e)}, lambda_response['StatusCode'])
+            return make_response({"message": "Lambda Invoke Failed", "error": str(e)}, lambda_response['StatusCode'])
     except Exception as e:
         return make_response({"message": str(e)}, 403)
 
