@@ -76,19 +76,23 @@ class ZipProgress {
   }
 
   async log(progress) {
-    const updateCommand = new UpdateCommand({
-      TableName: this.tableName,
-      Key: {
-        folder: '/' + this.folder,
-        zipFileName: this.zipFileName,
-      },
-      UpdateExpression: 'set progress = :progress, updatedAt = :updatedAt',
-      ExpressionAttributeValues: {
-        ':progress': progress,
-        ':updatedAt': new Date().toISOString(),
-      },
-    })
-    await this.docClient.send(updateCommand)
+    try {
+      const updateCommand = new UpdateCommand({
+        TableName: this.tableName,
+        Key: {
+          folder: '/' + this.folder,
+          zipFileName: this.zipFileName,
+        },
+        UpdateExpression: 'set progress = :progress, updatedAt = :updatedAt',
+        ExpressionAttributeValues: {
+          ':progress': progress,
+          ':updatedAt': new Date().toISOString(),
+        },
+      })
+      await this.docClient.send(updateCommand)
+    } catch (err) {
+      console.error('Error while pushing logs to dynamoDB: ', err)
+    }
   }
 }
 
