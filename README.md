@@ -91,3 +91,10 @@ dynamodb:Query (on all the indices of the zip progress dynamoDB table)
 1. Make sure the lambda function is active.
 2. Run the backend server by running `python3 run.py` in `server` directory.
 3. Run the frontend by running `npm start` in the `web-client` directory.
+
+## Steps to Deploy
+
+1. Test out all the features.
+2. Run `npm run build` in the `web-client` directory to build the react app and copy the build to backend server.
+3. Deploy only `server` directory anywhere as a flask app.
+4. Make sure the lambda function is active.
